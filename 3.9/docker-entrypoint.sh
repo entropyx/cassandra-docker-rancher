@@ -10,6 +10,7 @@ if [ "$1" = 'cassandra' ]; then
 	: ${CASSANDRA_RPC_ADDRESS='0.0.0.0'}
 
 	if [ "$RANCHER_ENABLE" = 'true' ]; then
+        echo "-- RANCHER ENABLED"
     
         RANCHER_META=http://rancher-metadata/2015-07-25
         
@@ -34,7 +35,7 @@ if [ "$1" = 'cassandra' ]; then
             PRIMARY_IP=$(curl --retry 3 --fail --silent $RANCHER_META/self/container/primary_ip)
 
             : ${RANCHER_SEED_SERVICE:=$(curl --retry 3 --fail --silent $RANCHER_META/self/service/name)}
-            
+
         else 
             CHECK_CONTAINER_EXISTS=$(curl -s -o /dev/null -w "%{http_code}" $RANCHER_META/services/${RANCHER_SEED_SERVICE}/containers)
             if [ $CHECK_CONTAINER_EXISTS -eq 404 ]; then
@@ -43,12 +44,13 @@ if [ "$1" = 'cassandra' ]; then
             fi
         
             PRIMARY_IP=$(curl --retry 3 --fail --silent $RANCHER_META/self/host/agent_ip)
-           
         fi
+        
+        echo "-- NETWORK ($NET) WITH SEED SERVICE: $RANCHER_SEED_SERVICE"
         
         CASSANDRA_LISTEN_ADDRESS=$PRIMARY_IP
         CASSANDRA_BROADCAST_ADDRESS=$CASSANDRA_LISTEN_ADDRESS
-        CASSANDRA_BROADCAST_RPC_ADDRESS=$CASSANDRA_BROADCAST_ADDRESS 
+        CASSANDRA_BROADCAST_RPC_ADDRESS=$CASSANDRA_BROADCAST_ADDRESS
         
         containers="$(curl --retry 3 --fail --silent $RANCHER_META/services/${RANCHER_SEED_SERVICE}/containers)"
         readarray -t containers_array <<<"$containers"
@@ -64,6 +66,8 @@ if [ "$1" = 'cassandra' ]; then
                 CASSANDRA_SEEDS="$CASSANDRA_SEEDS,$container_ip"
             fi
         done
+        
+        echo "-- PRIMARY IP: $PRIMARY_IP"
         
 	else
 		: ${CASSANDRA_LISTEN_ADDRESS='auto'}
@@ -85,6 +89,7 @@ if [ "$1" = 'cassandra' ]; then
 
 	: ${CASSANDRA_SEEDS:="$CASSANDRA_BROADCAST_ADDRESS"}
 
+    echo "-- SEEDS FOUND: $CASSANDRA_SEEDS"
 	sed -ri 's/(- seeds:) "[0-9\.,]+"/\1 "'"$CASSANDRA_SEEDS"'"/' "$CASSANDRA_CONFIG/cassandra.yaml"
 
 	for yaml in \
@@ -104,7 +109,7 @@ if [ "$1" = 'cassandra' ]; then
 		fi
 	done
 
-	echo "Replacing snitch"
+	echo "-- REPLACING SNITCH"
 	sed -ri 's/^endpoint_snitch.*/endpoint_snitch: GossipingPropertyFileSnitch/' "$CASSANDRA_CONFIG/cassandra-rackdc.properties"
 
 	for rackdc in dc rack; do
