@@ -1,10 +1,10 @@
 FROM debian:jessie-backports
 
-RUN apt-key adv --keyserver ha.pool.sks-keyservers.net --recv-keys 514A2AD631A57A16DD0047EC749D6EEC0353B12C
+RUN apt-key adv --keyserver pool.sks-keyservers.net --recv-key A278B781FE4B2BDA
 
-RUN echo 'deb http://www.apache.org/dist/cassandra/debian 31x main' >> /etc/apt/sources.list.d/cassandra.list
+RUN echo 'deb http://www.apache.org/dist/cassandra/debian 39x main' >> /etc/apt/sources.list.d/cassandra.list
 
-ENV CASSANDRA_VERSION 3.1.1
+ENV CASSANDRA_VERSION 3.9
 
 RUN apt-get update \
 	&& apt-get install -y curl cassandra="$CASSANDRA_VERSION" \
@@ -15,7 +15,7 @@ ENV CASSANDRA_CONFIG /etc/cassandra
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
-VOLUME /var/lib/cassandra
+VOLUME ["/var/lib/cassandra", "/etc/cassandra"]
 
 # 7000: intra-node communication
 # 7001: TLS intra-node communication
@@ -23,4 +23,4 @@ VOLUME /var/lib/cassandra
 # 9042: CQL
 # 9160: thrift service
 EXPOSE 7000 7001 7199 9042 9160
-CMD ["cassandra", "-f"]
+CMD ["cassandra", "-f", "-R"]

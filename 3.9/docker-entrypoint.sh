@@ -11,21 +11,21 @@ if [ "$1" = 'cassandra' ]; then
 
 	if [ "$RANCHER_ENABLE" = 'true' ]; then
         echo "-- RANCHER ENABLED"
-    
+
         RANCHER_META=http://rancher-metadata/2015-07-25
-        
+
         if [ "$RANCHER_SEED_SERVICE" = '' ]; then
             echo "RANCHER_SEED_SERVICE envrionment variable does not seem to exist"
             exit 0
         fi
-    
+
         PRIMARY_IP_CHECK=$(curl -s -o /dev/null -w "%{http_code}" $RANCHER_META/self/container/primary_ip)
         NET=managed
         if [ $PRIMARY_IP_CHECK -eq 404 ]; then
             NET=host
         elif [ $PRIMARY_IP_CHECK -eq 200 ]; then
             NET=managed
-        else 
+        else
             echo "Unable to use http://rancher-metadata/2015-07-25"
             echo "If you are running your docker container in NET=host mode, be sure to enable 'Enable Rancher DNS service discovery'"
             exit 0
@@ -36,22 +36,22 @@ if [ "$1" = 'cassandra' ]; then
 
             : ${RANCHER_SEED_SERVICE:=$(curl --retry 3 --fail --silent $RANCHER_META/self/service/name)}
 
-        else 
+        else
             CHECK_CONTAINER_EXISTS=$(curl -s -o /dev/null -w "%{http_code}" $RANCHER_META/services/${RANCHER_SEED_SERVICE}/containers)
             if [ $CHECK_CONTAINER_EXISTS -eq 404 ]; then
                 echo "Container ($RANCHER_SEED_SERVICE) specified via env RANCHER_SEED_SERVICE, does not exist"
                 exit 0
             fi
-        
+
             PRIMARY_IP=$(curl --retry 3 --fail --silent $RANCHER_META/self/host/agent_ip)
         fi
-        
+
         echo "-- NETWORK ($NET) WITH SEED SERVICE: $RANCHER_SEED_SERVICE"
-        
+
         CASSANDRA_LISTEN_ADDRESS=$PRIMARY_IP
         CASSANDRA_BROADCAST_ADDRESS=$CASSANDRA_LISTEN_ADDRESS
         CASSANDRA_BROADCAST_RPC_ADDRESS=$CASSANDRA_BROADCAST_ADDRESS
-        
+
         containers="$(curl --retry 3 --fail --silent $RANCHER_META/services/${RANCHER_SEED_SERVICE}/containers)"
         readarray -t containers_array <<<"$containers"
 
@@ -59,16 +59,18 @@ if [ "$1" = 'cassandra' ]; then
         do
             container_name="$(curl --retry 3 --fail --silent $RANCHER_META/services/${RANCHER_SEED_SERVICE}/containers/$i)"
             container_ip="$(curl --retry 3 --fail --silent $RANCHER_META/containers/$container_name/primary_ip)"
-
+						if [ "$container_ip" == "$PRIMARY_IP" ]; then
+					    continue
+					  fi
             if [ -z "$CASSANDRA_SEEDS" ]; then
                 CASSANDRA_SEEDS="$container_ip"
             else
                 CASSANDRA_SEEDS="$CASSANDRA_SEEDS,$container_ip"
             fi
         done
-        
+
         echo "-- PRIMARY IP: $PRIMARY_IP"
-        
+
 	else
 		: ${CASSANDRA_LISTEN_ADDRESS='auto'}
 		if [ "$CASSANDRA_LISTEN_ADDRESS" = 'auto' ]; then
